@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Grep(./**)",
+      "Glob(./**)",
+      "Write(./reports/**)",
+      "Write(./.worktrees/**)",
+      "Read(./.worktrees/**)",
+      "Grep(./.worktrees/**)",
+      "Glob(./.worktrees/**)",
+      "Bash(git clone * ./.repo-cache/*)",
+      "Bash(gh repo clone * ./.repo-cache/*)",
+      "Bash(git -C ./.repo-cache/* fetch origin pull/*/head:prismcr/*)",
+      "Bash(git -C ./.repo-cache/* fetch origin *)",
+      "Bash(git -C ./.repo-cache/* worktree add *)",
+      "Bash(git -C ./.repo-cache/* worktree remove *)",
+      "Bash(git -C ./.repo-cache/* worktree list*)",
+      "Bash(git -C ./.repo-cache/* branch -D prismcr/*)",
+      "Bash(git -C ./.repo-cache/* branch --list prismcr/*)",
+      "Bash(git -C ./.repo-cache/* rev-parse *)",
+      "Bash(gh pr view * --repo *)",
+      "Bash(gh pr diff * --repo *)",
+      "Bash(gh repo view * --json *)",
+      "Bash(gh api repos/*/pulls/*)",
+      "Bash(git -C ./.worktrees/* diff*)",
+      "Bash(git -C ./.worktrees/* log*)",
+      "Bash(git -C ./.worktrees/* show*)",
+      "Bash(git -C ./.worktrees/* status*)"
+    ],
+    "deny": [
+      "Bash(git -C ./.repo-cache/* push*)",
+      "Bash(git -C ./.repo-cache/* commit*)",
+      "Bash(git -C ./.repo-cache/* reset*)",
+      "Bash(git -C ./.repo-cache/* checkout*)",
+      "Read(./.repo-cache/**/.env*)",
+      "Read(./.worktrees/**/.env*)"
+    ]
+  },
+  "_comment_deliberately_unlisted": "gh pr comment * and gh api */pulls/*/comments * are intentionally absent from both allow and deny — never blanket-denied (that would break the explicit 'comment issue N on the PR' follow-up), never allow-listed either (so the normal permission prompt still gates every single post, on top of the user having to name the finding in chat). See jobs/comment-finding.md.",
+  "_comment_deny_branch_D": "The allow list only permits `branch -D prismcr/*` (this tool's own namespaced worktree branch). Deliberately no broader `branch -D *` deny entry exists: since deny rules take precedence over allow rules on overlapping matches, a bare `branch -D *` deny would also swallow the narrow allow above. Any other branch-deletion command simply has no matching allow rule and falls back to the harness's default prompt/deny behavior — that absence is the backstop, not an explicit deny."
+}

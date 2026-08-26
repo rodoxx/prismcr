@@ -1,0 +1,18 @@
+# Persistent local clones of reviewed repos, created on first use
+.repo-cache/
+
+# Ephemeral PR checkouts — created/removed per review run
+.worktrees/*
+!.worktrees/.gitkeep
+
+# Dated review reports quote reviewed-repo source (sometimes near secrets
+# even after masking) — only the convention doc is committed, never a run's
+# output.
+reports/*
+!reports/README.md
+
+# Local-machine permission overrides
+.claude/settings.local.json
+
+node_modules/
+*.log
