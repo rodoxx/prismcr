@@ -32,6 +32,25 @@ an admin report endpoint run once a day).
 - **Missing pagination/indexes** — a new query filtering/sorting on a
   column with no evident index, or a new list endpoint with no
   pagination params
+- **Database query efficiency** — a new/changed query doing more work
+  than it needs to at the query layer:
+  - *Missing column pruning* — pulling the whole row/document
+    (`SELECT *`, an ORM's `.find()`/`.findAll()` with no `select`, an
+    Elasticsearch search with no `_source` filtering) when only a few
+    fields are used downstream
+  - *Unnecessary joins* — joining a table/index whose columns never
+    appear in the result or filter, or a join where a subquery/`EXISTS`
+    check would avoid pulling extra rows (flag the added data-volume
+    cost only — row-duplication correctness from a fan-out join is a
+    correctness-lens concern, not this one)
+  - *Inefficient UPDATE/write queries* — an `UPDATE` with no `WHERE`
+    clause, an `UPDATE` issued per-row inside a loop instead of one
+    batched statement, or a write that rewrites columns that didn't
+    change (unnecessary index/trigger churn)
+  - *Elasticsearch-specific* — an unbounded search (no `size`/pagination)
+    that can return a huge hit set, a leading-wildcard/regex query on a
+    hot path, or a scored (`must`) clause used for what's really a
+    filter (losing filter-context caching)
 - **Cache misuse** — a new cache read/write that can't ever hit (key
   includes a timestamp/random value), or a cache invalidation gap that
   will serve stale data after the diff's write path runs
