@@ -44,9 +44,10 @@ an admin report endpoint run once a day).
     cost only — row-duplication correctness from a fan-out join is a
     correctness-lens concern, not this one)
   - *Inefficient UPDATE/write queries* — an `UPDATE` with no `WHERE`
-    clause, an `UPDATE` issued per-row inside a loop instead of one
-    batched statement, or a write that rewrites columns that didn't
-    change (unnecessary index/trigger churn)
+    clause on a table whose row count isn't bounded (a one-off migration
+    or a single-row config table is fine), an `UPDATE` issued per-row
+    inside a loop instead of one batched statement, or a write that
+    rewrites columns that didn't change (unnecessary index/trigger churn)
   - *Elasticsearch-specific* — an unbounded search (no `size`/pagination)
     that can return a huge hit set, a leading-wildcard/regex query on a
     hot path, or a scored (`must`) clause used for what's really a
