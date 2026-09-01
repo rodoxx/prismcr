@@ -16,3 +16,5 @@ reports/*
 
 node_modules/
 *.log
+
+docs
