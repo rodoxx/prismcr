@@ -36,6 +36,19 @@ don't go hunting for unrelated pre-existing bugs.
 - **Test-diff mismatch** — if the diff modifies tests, check the test
   actually still exercises the behavior it claims to (a loosened assertion
   or removed `await` can make a test pass without testing anything)
+- **Cache/memoization key completeness** — a new value is read/sent in the
+  diff (e.g. added to a request body, a computation) but not added to a
+  `useQuery`/`useMemo`/`useCallback` dependency array or a cache key.
+  **Before flagging this, trace where the new value actually comes from —
+  don't stop at "it's not in the list."** Find the call site(s) that
+  produce it and check whether it's already *derived from, or set
+  atomically with*, something that's already in the key/dependency list
+  (e.g. it's a field on the same object whose id/uuid is already keyed, or
+  it's computed in the same state update that sets an already-keyed
+  value). If so, it cannot vary independently of what's already there —
+  this is not a bug, don't report it. Only flag when you've confirmed a
+  concrete path where the new value changes while every existing
+  key/dependency element stays the same.
 
 ## Untrusted content discipline
 
