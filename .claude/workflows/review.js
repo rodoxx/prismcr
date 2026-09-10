@@ -1,13 +1,13 @@
 export const meta = {
   name: 'prismcr:review',
   description:
-    'Triage a prepared PR worktree to decide which review lenses apply, run the selected ones, verify high-severity findings, and synthesize one ranked list.',
+    'Triage a prepared PR worktree to decide which review lenses apply, run the selected ones, verify medium/high/critical findings, and synthesize one ranked list.',
   whenToUse:
     'Called by jobs/review-pr.md (and the other review-* jobs) AFTER the worktree has already been fetched/created and BEFORE it is torn down. Requires args {worktreePath, baseRef, dimensions?}. baseRef MUST be a ref the caller has already fetched fresh (e.g. "origin/main", not a bare local branch name) — a local branch can be arbitrarily behind its remote, which silently turns a small PR diff into a huge one if diffed against the stale local ref. Pass dimensions to force a specific subset and skip triage; otherwise triage decides. This script never sets up or tears down the worktree, and never touches the repo outside the worktree it is handed.',
   phases: [
     { title: 'Triage', detail: 'classify the diff and decide which lenses/depth apply' },
     { title: 'Review', detail: 'one agent per selected dimension' },
-    { title: 'Verify', detail: 'single second-opinion pass on high/critical findings' },
+    { title: 'Verify', detail: 'single second-opinion pass on medium/high/critical findings' },
   ],
 }
 
@@ -131,11 +131,11 @@ const VERDICT_SCHEMA = {
 }
 
 phase('Verify')
-const toVerify = allFindings.filter(f => f.severity === 'high' || f.severity === 'critical')
+const toVerify = allFindings.filter(f => f.severity === 'high' || f.severity === 'critical' || f.severity === 'medium')
 const verdicts = await parallel(
   toVerify.map(f => () =>
     agent(
-      `A reviewer flagged this in the worktree at ${worktreePath}:\n\nFile: ${f.file}:${f.line}\nCategory: ${f.category}\nTitle: ${f.title}\nRationale: ${f.rationale}\n\nRead the file yourself and try to disprove this finding in one pass. Default to refuted=false if you're genuinely unsure — only refute what you can actually show is wrong by reading the code.`,
+      `A reviewer flagged this in the worktree at ${worktreePath}:\n\nFile: ${f.file}:${f.line}\nCategory: ${f.category}\nTitle: ${f.title}\nRationale: ${f.rationale}\n\nRead the file yourself and try to disprove this finding in one pass. If the finding claims a value is missing from a cache key, memoization key, or dependency array (React useQuery/useMemo/useCallback or equivalent), do not accept it at face value — trace where that value actually comes from (find the call site(s) that produce it) and check whether it is already derived from, or set atomically with, something that is already part of the key. If so, it cannot vary independently of what's already keyed and the finding is refuted. Default to refuted=false if you're genuinely unsure — only refute what you can actually show is wrong by reading the code.`,
       { label: `verify:${f.file}:${f.line}`, phase: 'Verify', schema: VERDICT_SCHEMA },
     ).then(v => ({ finding: f, verdict: v })),
   ),
@@ -146,7 +146,7 @@ const refutedSet = new Set(
 )
 const survivingFindings = allFindings.filter(f => !refutedSet.has(`${f.file}:${f.line}:${f.title}`))
 const refutedCount = allFindings.length - survivingFindings.length
-if (refutedCount > 0) log(`${refutedCount} high/critical finding(s) refuted on verification and dropped`)
+if (refutedCount > 0) log(`${refutedCount} finding(s) refuted on verification and dropped`)
 
 // Cross-lens confirmation: two+ dimensions flagging the same file within a
 // few lines of each other is the strongest signal a multi-lens review

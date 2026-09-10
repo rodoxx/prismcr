@@ -54,7 +54,14 @@ an admin report endpoint run once a day).
     filter (losing filter-context caching)
 - **Cache misuse** — a new cache read/write that can't ever hit (key
   includes a timestamp/random value), or a cache invalidation gap that
-  will serve stale data after the diff's write path runs
+  will serve stale data after the diff's write path runs. **Before
+  flagging a missing-from-key value as an invalidation gap, trace where
+  that value actually comes from.** If it's already derived from, or set
+  atomically with, something that's already part of the key (e.g. it's a
+  field on the same object whose id is already keyed), it can't change
+  independently of what's already there — that's not a bug. Only flag
+  when you've traced a concrete path where the value changes while every
+  existing key element stays the same.
 - **Serverless-specific** — new cold-start-sensitive work in a Lambda's
   top-level scope instead of inside the handler; missing
   concurrency/timeout tuning for a newly heavier handler
