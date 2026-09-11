@@ -11,7 +11,7 @@ allowed-tools:
   - AskUserQuestion
   - Workflow
   - Workflow(prismcr:review)
-  - Agent(review-correctness, review-security, review-performance, review-architecture)
+  - Agent(review-correctness, review-security, review-performance, review-architecture, profile-architecture)
   - Bash(git clone * ./.repo-cache/*)
   - Bash(gh repo clone * ./.repo-cache/*)
   - Bash(git -C ./.repo-cache/* fetch origin pull/*/head:prismcr/*)
@@ -21,6 +21,10 @@ allowed-tools:
   - Bash(git -C ./.repo-cache/* worktree list*)
   - Bash(git -C ./.repo-cache/* branch -D prismcr/*)
   - Bash(git -C ./.repo-cache/* rev-parse *)
+  - Bash(git -C ./.repo-cache/* ls-tree *)
+  - Bash(git -C ./.repo-cache/* show *)
+  - Bash(git -C ./.repo-cache/* grep *)
+  - Write(./.repo-cache/*/*.architecture.json)
   - Bash(gh pr view * --repo *)
   - Bash(gh pr diff * --repo *)
   - Bash(gh repo view * --json *)
@@ -58,6 +62,7 @@ Then read the chosen job's recipe and follow it.
 
 - [Report spec](${CLAUDE_SKILL_DIR}/specs/report-spec.md) — the exact shape of `report.md` / `findings.json`
 - Dimension agents: `review-correctness`, `review-security`, `review-performance`, `review-architecture` — the `prismcr:review` workflow's triage step decides which of these actually run per PR and how deep, based on what the diff contains; it's normal and expected for a trivial PR to select none of them. The user can also force a specific subset directly (skips triage).
+- `profile-architecture` — profiles a repo's default branch to build/refresh the durable architecture-convention cache used by `review-architecture` (see `jobs/review-pr.md` step 2); the only prismcr agent with Write access, scoped to writing just the one `.repo-cache/<owner>/<repo>.architecture.json` path it's given.
 
 ## The boundary — read this before running any job
 

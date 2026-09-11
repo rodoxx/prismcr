@@ -20,7 +20,12 @@ The machine-readable source of truth. A JSON object:
     "commit_sha": "a1b2c3d...",
     "base_ref": "main",
     "dimensions_run": ["security", "correctness"],
-    "triage_rationale": "Auth-adjacent change to session handling; skipped performance and architecture as out of scope for a small, contained fix."
+    "triage_rationale": "Auth-adjacent change to session handling; skipped performance and architecture as out of scope for a small, contained fix.",
+    "architecture_profile": {
+      "path": ".repo-cache/some-org/some-repo.architecture.json",
+      "generated_at": "2026-08-15T09:00:00Z",
+      "rebuilt_this_run": false
+    }
   },
   "findings": [
     {
@@ -51,6 +56,13 @@ The machine-readable source of truth. A JSON object:
   — include it even when `dimensions_run` is empty, since "no dimensions
   applied" without a reason reads as a broken run rather than a deliberate
   one.
+- `architecture_profile` is present only when the architecture lens ran
+  **and** actually had a profile available (see the `profile-architecture`
+  agent and `jobs/review-pr.md` step 2) — `path`/`generated_at` identify
+  which profile was used, `rebuilt_this_run` says whether this run built
+  it fresh vs. reused an existing one. Omit the field entirely when the
+  architecture lens didn't run, or ran without a profile (e.g. profiling
+  failed — the review still proceeds, just without this field).
 - `suggested_comment_body` is pre-written so `comment-finding` never has to
   re-derive comment text from the markdown — it's ready to post as-is (the
   human can still edit it before approving).
@@ -81,6 +93,7 @@ Human-facing rendering of the same data:
 
 **Commit:** a1b2c3d  **Base:** main  **Dimensions run:** security, correctness
 **Triage:** auth-adjacent change to session handling; skipped performance and architecture as out of scope for a small, contained fix.
+**Architecture profile:** .repo-cache/some-org/some-repo.architecture.json (generated 2026-08-15, reused)
 
 ## Findings (4, most severe first)
 
@@ -108,3 +121,7 @@ requester to the order's owner.
 - An empty findings list from lenses that *did* run is a valid, good
   result — say so plainly ("No findings across N dimensions"), don't pad
   the report to look busier than the review actually was.
+- Show the **Architecture profile** line only when the architecture lens
+  ran and had a profile available (`findings.json`'s
+  `run.architecture_profile` is present) — say whether it was reused or
+  freshly rebuilt this run. Omit the line entirely otherwise.
