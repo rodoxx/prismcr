@@ -3,7 +3,7 @@ export const meta = {
   description:
     'Triage a prepared PR worktree to decide which review lenses apply, run the selected ones, verify medium/high/critical findings, and synthesize one ranked list.',
   whenToUse:
-    'Called by jobs/review-pr.md (and the other review-* jobs) AFTER the worktree has already been fetched/created and BEFORE it is torn down. Requires args {worktreePath, baseRef, dimensions?}. baseRef MUST be a ref the caller has already fetched fresh (e.g. "origin/main", not a bare local branch name) — a local branch can be arbitrarily behind its remote, which silently turns a small PR diff into a huge one if diffed against the stale local ref. Pass dimensions to force a specific subset and skip triage; otherwise triage decides. This script never sets up or tears down the worktree, and never touches the repo outside the worktree it is handed.',
+    'Called by jobs/review-pr.md (and the other review-* jobs) AFTER the worktree has already been fetched/created and BEFORE it is torn down. Requires args {worktreePath, baseRef, dimensions?, architectureProfile?}. baseRef MUST be a ref the caller has already fetched fresh (e.g. "origin/main", not a bare local branch name) — a local branch can be arbitrarily behind its remote, which silently turns a small PR diff into a huge one if diffed against the stale local ref. Pass dimensions to force a specific subset and skip triage; otherwise triage decides. Pass architectureProfile (the JSON profile from the profile-architecture agent) to have it spliced into the architecture lens\'s own prompt only — every other lens is unaffected, and it\'s safe to omit entirely. This script never sets up or tears down the worktree, and never touches the repo outside the worktree it is handed.',
   phases: [
     { title: 'Triage', detail: 'classify the diff and decide which lenses/depth apply' },
     { title: 'Review', detail: 'one agent per selected dimension' },
@@ -16,9 +16,10 @@ const ARGS = typeof args === 'string' ? (() => { try { return JSON.parse(args) }
 const worktreePath = ARGS && ARGS.worktreePath
 const baseRef = ARGS && ARGS.baseRef
 const forcedDimensions = ARGS && ARGS.dimensions
+const architectureProfile = (ARGS && ARGS.architectureProfile) || null
 
 if (!worktreePath || typeof worktreePath !== 'string') {
-  throw new Error('prismcr:review requires args: {worktreePath: "<abs path>", baseRef: "<ref>", dimensions?: [...]}')
+  throw new Error('prismcr:review requires args: {worktreePath: "<abs path>", baseRef: "<ref>", dimensions?: [...], architectureProfile?: {...}}')
 }
 // Must be one of this project's own ephemeral worktrees — never point this
 // workflow at a real checkout or an arbitrary path.
@@ -104,17 +105,22 @@ if (lensPlan.length === 0) {
     refutedCount: 0,
     totalRaw: 0,
     triageRationale,
+    architectureProfileApplied: false,
   }
 }
 
 phase('Review')
 const perDimension = await pipeline(
   lensPlan,
-  lens =>
-    agent(
-      `Review the diff between "${baseRef}" and HEAD in the git worktree at ${worktreePath}. Run \`git -C ${worktreePath} diff ${baseRef}...HEAD\` first to scope your review to what actually changed, then read the changed files in full for context. Depth for this pass: ${lens.depth}.${lens.focus ? ` Focus: ${lens.focus}` : ''} Return your findings per your output contract, as the "findings" array of the required tool call (an empty array if you found nothing).`,
+  lens => {
+    const profileNote = lens.name === 'architecture' && architectureProfile
+      ? ` Known conventions for this repo, from a prior profiling pass: ${JSON.stringify(architectureProfile)}. Check the diff against these directly rather than re-deriving them from scratch; flag deviations explicitly. Still spot-check sibling files for anything the profile doesn't cover.`
+      : ''
+    return agent(
+      `Review the diff between "${baseRef}" and HEAD in the git worktree at ${worktreePath}. Run \`git -C ${worktreePath} diff ${baseRef}...HEAD\` first to scope your review to what actually changed, then read the changed files in full for context. Depth for this pass: ${lens.depth}.${lens.focus ? ` Focus: ${lens.focus}` : ''}${profileNote} Return your findings per your output contract, as the "findings" array of the required tool call (an empty array if you found nothing).`,
       { agentType: `review-${lens.name}`, label: `review:${lens.name}`, phase: 'Review', schema: FINDING_SCHEMA },
-    ).then(result => (result && Array.isArray(result.findings) ? result.findings.map(f => ({ ...f, category: f.category || lens.name })) : [])),
+    ).then(result => (result && Array.isArray(result.findings) ? result.findings.map(f => ({ ...f, category: f.category || lens.name })) : []))
+  },
 )
 
 const dimensions = lensPlan.map(l => l.name)
@@ -174,4 +180,5 @@ return {
   refutedCount,
   totalRaw: allFindings.length,
   triageRationale,
+  architectureProfileApplied: dimensions.includes('architecture') && !!architectureProfile,
 }
